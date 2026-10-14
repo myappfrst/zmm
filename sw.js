@@ -9,7 +9,7 @@
  * ============================================================================
  */
 
-const CACHE_NAME = 'zoom-workplace-v3';
+const CACHE_NAME = 'zoom-workplace-v4';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -52,7 +52,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     event.respondWith(
-        fetch(event.request)
+        fetch(event.request, { cache: 'no-cache' })
             .then((networkResp) => {
                 if (networkResp && networkResp.status === 200) {
                     const respClone = networkResp.clone();
