@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>Zoom Workplace</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="src/favicon.png">
+    <link rel="apple-touch-icon" href="src/ava.jpg">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- UI MODALS -->
+    <div id="imgModal" class="custom-modal-overlay" onclick="closeModal('imgModal')">
+        <span class="close-modal">&times;</span>
+        <img id="modalImg" class="img-modal-content" src="" onclick="event.stopPropagation()">
+    </div>
+
+    <!-- CONTEXT MENU -->
+    <div id="contextMenu">
+        <div class="context-item" id="cmReply" onclick="triggerReply()">
+            <svg viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg> Reply
+        </div>
+        <div class="context-item" id="cmEdit" onclick="triggerEdit()">
+            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg> Edit
+        </div>
+        <div class="context-item" id="cmSelect" onclick="triggerSelect()">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Select
+        </div>
+        <div class="context-item danger" id="cmDelete" onclick="openDeleteModal()">
+            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> <span id="cmDeleteText">Delete</span>
+        </div>
+    </div>
+
+    <!-- O'chirish tasdig'i -->
+    <div id="deleteConfirmModal" onclick="closeModal('deleteConfirmModal')">
+        <div class="delete-dialog" onclick="event.stopPropagation()">
+            <h4>Delete Message</h4>
+            <p>Are you sure you want to delete this message?</p>
+            <div class="del-btn-group">
+                <button class="del-btn danger" onclick="confirmDelete('everyone')">Delete for everyone</button>
+                <button class="del-btn danger" onclick="confirmDelete('me')">Delete for me</button>
+                <button class="del-btn cancel" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. BOSH EKRAN (ZOOM WORKPLACE HOME) -->
+    <div id="homeView">
+        <div class="home-sidebar">
+            <div class="nav-item active" id="tabHome" onclick="switchTab('home')">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                Home
+            </div>
+            <div class="nav-item" id="tabMeetings" onclick="switchTab('meetings')">
+                <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/></svg>
+                Meetings
+            </div>
+            <div class="nav-item" id="tabChat" onclick="switchTab('chat')">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+                Team Chat
+            </div>
+        </div>
+
+        <div class="home-wrapper">
+            <div class="home-topbar">
+                <div></div>
+                <div class="topbar-right">
+                    <button class="btn-install" id="installAppBtn">
+                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Install App
+                    </button>
+                    
+                    <div class="profile-icon">
+                        <img id="homeProfilePic" src="src/ava.jpg" alt="Profile" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23555\'><path d=\'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z\'/></svg>'">
+                    </div>
+                </div>
+            </div>
+
+            <div id="homeTabContent">
+                <div class="time-display">
+                    <h1 id="homeClock">16:03</h1>
+                    <p id="homeDate">September 9, 2026</p>
+                </div>
+                <div class="action-buttons">
+                    <div class="action-btn-wrapper" onclick="startNewMeeting()">
+                        <div class="action-btn orange"><svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z"/></svg></div>
+                        <div class="action-btn-text">New Meeting</div>
+                    </div>
+                    <div class="action-btn-wrapper" onclick="alert('Available soon.')">
+                        <div class="action-btn blue"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></div>
+                        <div class="action-btn-text">Join</div>
+                    </div>
+                    <div class="action-btn-wrapper" onclick="alert('Available soon.')">
+                        <div class="action-btn blue"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg></div>
+                        <div class="action-btn-text">Schedule</div>
+                    </div>
+                    <div class="action-btn-wrapper" onclick="alert('Available soon.')">
+                        <div class="action-btn blue"><svg viewBox="0 0 24 24"><path d="M16 11V3H8v6H2v12h20V11h-6zm-6-6h4v4h-4V5zm-6 6h4v8H4v-8zm16 8h-4v-6h-4v6H8v-2h12v2z"/></svg></div>
+                        <div class="action-btn-text">Share Screen</div>
+                    </div>
+                </div>
+                </div>
+
+            <!-- MEETINGS TAB -->
+            <div id="meetingsTabContent" style="display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; padding: 40px;">
+                <svg viewBox="0 0 24 24" style="width: 100px; fill: #d0d0d0; margin-bottom: 20px;"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg>
+                <h2 style="color: #333; font-weight: 500; margin-bottom: 10px;">Upcoming Meetings</h2>
+                <p style="color: #888;">You have no scheduled meetings at this time.</p>
+            </div>
+
+            <!-- TEAM CHAT TAB -->
+            <div id="teamChatTabContent">
+                <div class="tc-sidebar">
+                    <div class="tc-header-title">Chats</div>
+                    <div class="tc-list">
+                        <!-- James Chat Item -->
+                        <div class="tc-item active" onclick="switchDirectChat('james')">
+                            <div class="tc-avatar la">LA</div>
+                            <div class="tc-info">
+                                <div class="tc-name-row">
+                                    <div class="tc-name" id="tcChatNameItem">James (Attorney)</div>
+                                    <div class="tc-time" id="jamesLastMsgTime">04:37</div>
+                                </div>
+                                <div class="tc-preview" id="jamesLastMsgPreview">File: international_wire_transfer_receipt.pdf</div>
+                            </div>
+                        </div>
+                        <!-- Judge Owen Chat Item -->
+                        <div class="tc-item" onclick="switchDirectChat('owen')">
+                            <div class="tc-avatar ob">OB</div>
+                            <div class="tc-info">
+                                <div class="tc-name-row">
+                                    <div class="tc-name">Judge Owen</div>
+                                    <div class="tc-time">Sep 7</div>
+                                </div>
+                                <div class="tc-preview">Chat cleared by 7-day auto-deletion</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tc-main">
+                    <div class="tc-chat-header">
+                        <div class="tc-avatar la" id="tcChatAvatar">LA</div>
+                        <div class="tc-chat-details">
+                            <div class="tc-chat-title-text" id="tcChatName">James (Attorney)</div>
+                            <div class="tc-chat-status" id="tcChatStatus">last seen recently</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tc-chat-body" id="tcChatBody">
+                        <!-- Chat xabarlari shu yerga yuklanadi -->
+                    </div>
+                    
+                    <div class="chat-input-wrapper" id="tcInputWrapper">
+                        <div class="chat-input-area">
+                            <button class="attach-btn" onclick="document.getElementById('fileInput').click()">
+                                <svg viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 015 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 005 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v11.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+                            </button>
+                            <textarea id="tcChatInput" placeholder="Write a message..." onkeypress="handleKeyPress(event, 'tc')" oninput="autoResize(this)" rows="1"></textarea>
+                            <button class="send-btn" onclick="sendMessage('tc')">
+                                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHARED CHAT CONTAINERS -->
+    <div id="sharedChatContainer" class="shared-chat-wrapper">
+        <!-- Asosiy yozishmalar -->
+    </div>
+    
+    <div id="owenChatContainer" class="shared-chat-wrapper" style="display:none; justify-content: center;">
+        <div class="system-msg-container">
+            <div class="system-msg">Chat cleared by 7-day auto-deletion</div>
+        </div>
+    </div>
+
+
+    <!-- ============================================== -->
+    <!-- 2. MEETING VIEW                                -->
+    <!-- ============================================== -->
+    <div id="meetingView" class="state-solo">
+        
+        <div id="participantsModal">
+            <div class="p-header">Participants (<span id="participantCount">1</span>) <span style="cursor:pointer;" onclick="toggleParticipants()">✖</span></div>
+            <div class="p-list">
+                <div class="p-item">
+                    <div class="p-info">
+                        <div class="p-avatar">LA</div>
+                        James (Attorney)
+                    </div>
+                    <button class="btn-invite" id="inviteBtn" onclick="inviteJames()">Invite</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="video-area">
+                <div class="video-wrapper">
+                    <!-- James Box -->
+                    <div class="video-box split" id="lawyerBox" onclick="toggleFullScreen('lawyer')">
+                        <div class="avatar-placeholder">
+                            <div class="avatar-circle lawyer-avatar">LA</div>
+                        </div>
+                        <div class="name-tag">James (Attorney)</div>
+                        
+                        <!-- Ovozni boshqarish -->
+                        <div class="hover-volume-ctrl" onclick="event.stopPropagation()">
+                            <button class="vol-btn" id="lMuteBtn" onclick="toggleLawyerMute()">
+                                <svg id="lVolIcon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                            </button>
+                            <div class="vol-slider-wrapper">
+                                <input type="range" id="lVolSlider" min="0" max="1" step="0.05" value="1" oninput="changeLawyerVolume()">
+                            </div>
+                        </div>
+                        <audio id="lawyerAudio" autoplay></audio>
+                    </div>
+
+                    <!-- User Box -->
+                    <div class="video-box split" id="userBox" onclick="toggleFullScreen('user')">
+                        <video id="localVideo" autoplay muted playsinline></video>
+                        <div class="avatar-placeholder" id="myAvatarPlaceholder" style="display: none;">
+                            <div class="avatar-circle" style="background: url('src/ava.jpg') center/cover; color: transparent;">MR</div>
+                        </div>
+                        <div class="name-tag">Muzaffar Rasulov</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MEETING CHAT SIDEBAR -->
+            <div class="chat-sidebar" id="meetingChatSidebar">
+                <div class="meeting-chat-header">
+                    <div class="chat-header-titles">
+                        <div class="chat-header-maintitle">Meeting Chat</div>
+                        <div class="chat-header-subtitle">
+                            <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:#888"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3z"/></svg>
+                            7-day auto-deletion
+                        </div>
+                    </div>
+                    <span class="close-chat" onclick="toggleMeetingChat()">✖</span>
+                </div>
+                
+                <div class="tc-chat-body" id="meetingChatBody">
+                    <!-- Chat Container bu yerga keladi -->
+                </div>
+
+                <div class="chat-input-wrapper">
+                    <div class="chat-input-area">
+                        <button class="attach-btn" onclick="document.getElementById('fileInput').click()">
+                            <svg viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 015 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 005 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v11.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+                        </button>
+                        <input type="file" id="fileInput" style="display: none;" onchange="handleFileUpload(event)">
+                        <textarea id="meetingChatInput" placeholder="Write a message..." onkeypress="handleKeyPress(event, 'meeting')" oninput="autoResize(this)" rows="1"></textarea>
+                        <button class="send-btn" id="meetingSendBtn" onclick="sendMessage('meeting')">
+                            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <div class="left-controls">
+                <button class="control-btn" id="micBtn" onclick="toggleMic()">
+                    <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></div>
+                    <span id="micText">Mute</span>
+                </button>
+                <button class="control-btn" id="camBtn" onclick="toggleCam()">
+                    <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z"/></svg></div>
+                    <span id="camText">Stop Video</span>
+                </button>
+                
+                <!-- 1x va 2x ZOOM TUGMALARI -->
+                <div class="divider"></div>
+                <div class="zoom-controls">
+                    <button class="zoom-btn active" id="btn1x" onclick="setZoom(1)">1x</button>
+                    <button class="zoom-btn" id="btn2x" onclick="setZoom(2)">2x</button>
+                </div>
+            </div>
+            
+            <button class="control-btn" onclick="toggleParticipants()">
+                <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+                <span>Participants</span>
+            </button>
+            <button class="control-btn" onclick="toggleMeetingChat()">
+                <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg></div>
+                <span>Chat</span>
+            </button>
+            <button class="control-btn" onclick="alert('Available soon.')">
+                <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+                <span>Reactions</span>
+            </button>
+            <button class="control-btn" onclick="alert('Available soon.')">
+                <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M16 11V3H8v6H2v12h20V11h-6zm-6-6h4v4h-4V5zm-6 6h4v8H4v-8zm16 8h-4v-6h-4v6H8v-2h12v2z"/></svg></div>
+                <span>Share</span>
+            </button>
+            
+            <button class="leave-btn" onclick="leaveMeeting()">End</button>
+        </div>
+    </div>
+
+    <!-- MODULAR SCRIPTS -->
+    <script src="app.js"></script>
+    <script src="api.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "zoom-workplace-render",
+  "version": "1.0.0",
+  "description": "Zoom Workplace Web App + Real-Time Sync API + 24/7 Telegram Bot (Render.com Ready)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "bot": "node bot.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
