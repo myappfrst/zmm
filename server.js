@@ -641,7 +641,8 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
 
-            const safeDiskName = `${fileId.slice(-24)}_${rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            const fileHash = crypto.createHash('md5').update(String(fileId)).digest('hex').slice(0, 20);
+            const safeDiskName = `${fileHash}_${rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
             const localCachePath = path.join(UPLOADS_DIR, safeDiskName);
             const ext = path.extname(rawFileName).toLowerCase();
             const isDownload = parsedUrl.query && parsedUrl.query.download === '1';
@@ -699,7 +700,8 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({
             events: db.events,
             deletedIds: db.deletedIds,
-            statusOverrides: db.statusOverrides
+            statusOverrides: db.statusOverrides,
+            pushSubscribersCount: (db.pushSubscriptions || []).length
         }));
         return;
     }
