@@ -12,10 +12,10 @@
 // SAFE STORAGE HELPERS & HOISTED STATE
         const _memStorage = {};
         function safeGetItem(key) {
-            try { return safeGetItem(key); } catch (e) { return _memStorage[key] || null; }
+            try { return window.localStorage.getItem(key); } catch (e) { return _memStorage[key] || null; }
         }
         function safeSetItem(key, val) {
-            try { safeSetItem(key, val); } catch (e) { _memStorage[key] = String(val); }
+            try { window.localStorage.setItem(key, val); } catch (e) { _memStorage[key] = String(val); }
         }
         var targetMessageRow = null;
         var isSelectionMode = false;
@@ -1862,11 +1862,15 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        if (msgTextDiv && msgTextDiv.innerText) previewText = msgTextDiv.innerText; 
-                        else if (tempDiv.querySelector('.voice-msg-player')) previewText = "🎤 Voice message";
-                        else if (tempDiv.querySelector('.chat-img-attachment')) previewText = "📷 Photo";
-                        else if (tempDiv.querySelector('.chat-video-attachment')) previewText = "🎥 Video";
-                        else if (fileDiv && fileDiv.innerText) previewText = "File: " + fileDiv.innerText; 
+                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
+                        const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
+                        const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
+                        if (hasImg) previewText = captionStr ? ("📷 " + captionStr) : "📷 Photo";
+                        else if (hasVid) previewText = captionStr ? ("🎥 " + captionStr) : "🎥 Video";
+                        else if (hasVoice) previewText = captionStr ? ("🎤 " + captionStr) : "🎤 Voice message";
+                        else if (fileDiv && fileDiv.innerText) previewText = "📄 " + fileDiv.innerText.trim() + (captionStr ? (" — " + captionStr) : "");
+                        else if (captionStr) previewText = captionStr;
                         else if (systemDiv && systemDiv.innerText) previewText = systemDiv.innerText; 
                     }
                     
@@ -1898,11 +1902,15 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        if (msgTextDiv && msgTextDiv.innerText) previewText = msgTextDiv.innerText; 
-                        else if (tempDiv.querySelector('.voice-msg-player')) previewText = "🎤 Voice message";
-                        else if (tempDiv.querySelector('.chat-img-attachment')) previewText = "📷 Photo";
-                        else if (tempDiv.querySelector('.chat-video-attachment')) previewText = "🎥 Video";
-                        else if (fileDiv && fileDiv.innerText) previewText = "File: " + fileDiv.innerText; 
+                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
+                        const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
+                        const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
+                        if (hasImg) previewText = captionStr ? ("📷 " + captionStr) : "📷 Photo";
+                        else if (hasVid) previewText = captionStr ? ("🎥 " + captionStr) : "🎥 Video";
+                        else if (hasVoice) previewText = captionStr ? ("🎤 " + captionStr) : "🎤 Voice message";
+                        else if (fileDiv && fileDiv.innerText) previewText = "📄 " + fileDiv.innerText.trim() + (captionStr ? (" — " + captionStr) : "");
+                        else if (captionStr) previewText = captionStr;
                         else if (systemDiv && systemDiv.innerText) previewText = systemDiv.innerText; 
                     }
                     
@@ -1934,11 +1942,15 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        if (msgTextDiv && msgTextDiv.innerText) previewText = msgTextDiv.innerText; 
-                        else if (tempDiv.querySelector('.voice-msg-player')) previewText = "🎤 Voice message";
-                        else if (tempDiv.querySelector('.chat-img-attachment')) previewText = "📷 Photo";
-                        else if (tempDiv.querySelector('.chat-video-attachment')) previewText = "🎥 Video";
-                        else if (fileDiv && fileDiv.innerText) previewText = "File: " + fileDiv.innerText; 
+                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
+                        const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
+                        const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
+                        if (hasImg) previewText = captionStr ? ("📷 " + captionStr) : "📷 Photo";
+                        else if (hasVid) previewText = captionStr ? ("🎥 " + captionStr) : "🎥 Video";
+                        else if (hasVoice) previewText = captionStr ? ("🎤 " + captionStr) : "🎤 Voice message";
+                        else if (fileDiv && fileDiv.innerText) previewText = "📄 " + fileDiv.innerText.trim() + (captionStr ? (" — " + captionStr) : "");
+                        else if (captionStr) previewText = captionStr;
                         else if (systemDiv && systemDiv.innerText) previewText = systemDiv.innerText; 
                     }
                     
@@ -1970,11 +1982,15 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        if (msgTextDiv && msgTextDiv.innerText) previewText = msgTextDiv.innerText; 
-                        else if (tempDiv.querySelector('.voice-msg-player')) previewText = "🎤 Voice message";
-                        else if (tempDiv.querySelector('.chat-img-attachment')) previewText = "📷 Photo";
-                        else if (tempDiv.querySelector('.chat-video-attachment')) previewText = "🎥 Video";
-                        else if (fileDiv && fileDiv.innerText) previewText = "File: " + fileDiv.innerText; 
+                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
+                        const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
+                        const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
+                        if (hasImg) previewText = captionStr ? ("📷 " + captionStr) : "📷 Photo";
+                        else if (hasVid) previewText = captionStr ? ("🎥 " + captionStr) : "🎥 Video";
+                        else if (hasVoice) previewText = captionStr ? ("🎤 " + captionStr) : "🎤 Voice message";
+                        else if (fileDiv && fileDiv.innerText) previewText = "📄 " + fileDiv.innerText.trim() + (captionStr ? (" — " + captionStr) : "");
+                        else if (captionStr) previewText = captionStr;
                         else if (systemDiv && systemDiv.innerText) previewText = systemDiv.innerText; 
                     }
                     
