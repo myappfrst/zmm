@@ -1,15 +1,4 @@
-/**
- * ============================================================================
- * ZOOM WORKPLACE — REAL-TIME API, ALBUM & VAPID WEB PUSH CLIENT (api.js)
- * ============================================================================
- * - Server (server.js) va Telegram Bot (bot.js) bilan real vaqtda bog'laydi
- * - VAPID Web Push orqali hattoki PWA yopiq bo'lganda ham bildirishnoma kelishini
- *   avtomatik ro'yxatdan o'tkazadi (/api/push-subscribe)
- * - Bir nechta rasm (2, 3, 4 va 4+ ta rasm) yuborilganda bitta guruh (Album)
- *   sifatida chizadi hamda Fayllarni Yuklab olish (Download) va Ulashish (Share)
- *   funksiyalarini taqdim etadi
- * ============================================================================
- */
+
 
 const VAPID_PUBLIC_KEY_CLIENT = 'BNib-6oOhMswQul1iBmheU13cES1YXqpM_Yk_xvkwHZllVkKpwx25NWJoXDRoFyzVPYOba9ikAZBGt0AQPHu_Z8';
 const GOOGLE_CLIENT_ID_CLIENT = '1055198853196-pb3cn7pjvr3pv7o97vj04jngl1j61vjd.apps.googleusercontent.com';
