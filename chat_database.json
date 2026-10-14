@@ -6,7 +6,8 @@
       "chat": "james",
       "type": "sent",
       "timestamp": 1791942181347,
-      "html": "<div class=\"message-wrapper\" style=\"transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.1); transform: translateX(0px);\"><div class=\"msg-bubble\"><div class=\"msg-text\" style=\"white-space: pre-wrap;\">Hi James you mentioned you would check on the GPI details for me. Have you heard back from the bank yet? I stayed up waiting for updates</div><div class=\"msg-time-container\"><span class=\"msg-edited-tag\">edited 06:43</span>06:43 <div class=\"msg-read-ticks\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z\"></path></svg></div></div></div></div>"
+      "html": "<div class=\"message-wrapper\" style=\"transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.1); transform: translateX(0px);\"><div class=\"msg-bubble\"><div class=\"msg-text\" style=\"white-space: pre-wrap;\">Hi James you mentioned you would check on the GPI details for me. Have you heard back from the bank yet? I stayed up waiting for updates</div><div class=\"msg-time-container\"><span class=\"msg-edited-tag\">edited 06:43</span>06:43 <div class=\"msg-read-ticks\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z\"></path></svg></div></div></div></div>",
+      "pushSent": true
     },
     {
       "id": "bot-msg-1791942420684-8387",
@@ -17,7 +18,8 @@
       "text": "Muzaffar I'll forward the update as soon as I hear from the bank. No worries BMO promised to speed things up and send the required GPI tracking code",
       "replyToLast": false,
       "timestamp": 1791942840000,
-      "timeStr": "06:54"
+      "timeStr": "06:54",
+      "pushSent": true
     },
     {
       "id": "bot-msg-1791971196908-8550",
@@ -28,7 +30,8 @@
       "text": "Hi Muzaffar hope everything went well at the embassy. We sent all the required documents and records to the embassy via fax and email by 5:00 PM on October 13.\n\nOnce the workday starts today I'll send over the address of your rental place and the photos from the landlord",
       "replyToLast": false,
       "timestamp": 1791971880000,
-      "timeStr": "14:58"
+      "timeStr": "14:58",
+      "pushSent": true
     },
     {
       "id": "msg-1791971219465",
@@ -36,7 +39,8 @@
       "chat": "levin",
       "type": "sent",
       "timestamp": 1791972811762,
-      "html": "<div class=\"message-wrapper\"><div class=\"msg-bubble\"><div class=\"msg-text\" style=\"white-space: pre-wrap;\">Yes Mr. Hart everything went great. All the documents were in order and they took my passport with no issues at all</div><div class=\"msg-time-container\">15:13 <div class=\"msg-read-ticks\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z\"/></svg></div></div></div></div>"
+      "html": "<div class=\"message-wrapper\"><div class=\"msg-bubble\"><div class=\"msg-text\" style=\"white-space: pre-wrap;\">Yes Mr. Hart everything went great. All the documents were in order and they took my passport with no issues at all</div><div class=\"msg-time-container\">15:13 <div class=\"msg-read-ticks\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z\"/></svg></div></div></div></div>",
+      "pushSent": true
     }
   ],
   "deletedIds": [
