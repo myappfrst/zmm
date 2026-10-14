@@ -3201,3 +3201,38 @@ body.selection-mode-active .message-row.selected-msg:not(.system)::before {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
+
+/* === V3 FIX: NATURAL IMAGE SIZE & FULL QUALITY IN MODAL & SINGLE PHOTOS === */
+.chat-img-attachment {
+    margin-bottom: 4px;
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 290px;
+    max-height: none !important;
+    cursor: pointer;
+    position: relative;
+    background: transparent;
+}
+.chat-img-attachment img {
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 440px !important;
+    object-fit: contain !important;
+    display: block;
+    border-radius: 12px;
+}
+#imgModal {
+    background: rgba(8, 12, 20, 0.94) !important;
+    padding: 64px 12px 84px 12px !important;
+    box-sizing: border-box !important;
+}
+#imgModal .img-modal-content {
+    width: auto !important;
+    height: auto !important;
+    max-width: 96vw !important;
+    max-height: calc(100vh - 150px) !important;
+    object-fit: contain !important;
+    border-radius: 6px !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65) !important;
+}
