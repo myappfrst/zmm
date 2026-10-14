@@ -832,7 +832,12 @@ const server = http.createServer(async (req, res) => {
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         const ext = path.extname(filePath).toLowerCase();
         const mime = MIME_TYPES[ext] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': mime });
+        const isCodeOrSw = ['.html', '.js', '.css', '.json'].includes(ext);
+        const headers = {
+            'Content-Type': mime,
+            'Cache-Control': isCodeOrSw ? 'no-cache, no-store, must-revalidate' : 'public, max-age=86400'
+        };
+        res.writeHead(200, headers);
         fs.createReadStream(filePath).pipe(res);
     } else {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
