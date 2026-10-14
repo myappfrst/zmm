@@ -4386,4 +4386,11 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
             navigator.serviceWorker.register('./sw.js').then(() => console.log("Service Worker registered")).catch(() => {});
         }
 
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.closest && e.target.closest('.profile-icon, #homeProfilePic')) {
+                if (typeof window.openMyProfileDrawer === 'function') {
+                    window.openMyProfileDrawer(e);
+                }
+            }
+        });
         startAutomatedScenario();
