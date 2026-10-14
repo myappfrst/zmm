@@ -22,6 +22,7 @@ process.env.TZ = "Asia/Tashkent";
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const BOT_USERNAME = '@myzoommsg_bot';
 const DEFAULT_BOT_TOKEN = '8805330579:AAGCm6sNKME1Qj55SIDraMLDm83U6jfVN-8';
@@ -255,7 +256,8 @@ async function extractMediaFromMessage(msg, token) {
     if (!mediaType || !fileId) return null;
 
     const safeBaseName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const localFileName = `${fileId.slice(-24)}_${safeBaseName}`;
+    const fileHash = crypto.createHash('md5').update(String(fileId)).digest('hex').slice(0, 20);
+    const localFileName = `${fileHash}_${safeBaseName}`;
     const localFullPath = path.join(UPLOADS_DIR, localFileName);
 
     try {
