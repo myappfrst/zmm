@@ -4,13 +4,18 @@
  * ============================================================================
  * Bot username: @myzoommsg_bot
  * Admin ID:     8911011200
- * Hech qanday .env faylsiz to'g'ridan-to'g'ri Render.com va lokalda 24/7 ishlaydi!
+ * - Matnli xabarlar, Rasmlar (Photo), Videolar (Video), Hujjatlar/Fayllar
+ *   (PDF, Word, Excel, ZIP va h.k.) hamda Ovozli xabarlarni (Voice/Audio)
+ *   istalgan chatga (hozir yoki belgilangan vaqtda) yuborishni qo'llab-quvvatlaydi.
+ * - Hech qanday .env faylsiz to'g'ridan-to'g'ri Render.com va lokalda 24/7 ishlaydi!
  * ============================================================================
  */
 
 process.env.TZ = 'Asia/Tashkent';
 
 const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 // ==========================================
 // BOT VA ADMIN SOZLAMALARI (ENV TALAB QILMAYDI)
@@ -18,6 +23,11 @@ const https = require('https');
 const BOT_USERNAME = '@myzoommsg_bot';
 const DEFAULT_BOT_TOKEN = '8805330579:AAGCm6sNKME1Qj55SIDraMLDm83U6jfVN-8';
 const ADMIN_TELEGRAM_ID = 8911011200;
+
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+    try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (e) {}
+}
 
 const CONTACTS = {
     james: { name: 'James (Attorney)', role: 'Corporate Attorney • Legal & Compliance', avatarType: 'la', avatarText: 'LA' },
@@ -35,6 +45,18 @@ function formatTimeHHMM(dateObj) {
 
 function formatDateReadable(dateObj) {
     return `${MONTHS_SHORT[dateObj.getMonth()]} ${dateObj.getDate()}, ${dateObj.getFullYear()}`;
+}
+
+function formatBytesSize(bytes) {
+    const b = Number(bytes) || 0;
+    if (b <= 0) return '120 KB';
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    return (b / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+function sanitizeFileName(name) {
+    return (name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
 function parseDateTimeInput(inputStr) {
@@ -116,6 +138,128 @@ function isAuthorizedAdmin(userId, chatId) {
     return Number(userId) === ADMIN_TELEGRAM_ID || Number(chatId) === ADMIN_TELEGRAM_ID;
 }
 
+/**
+ * Telegram serveridan faylni yuklab olish va /uploads papkasiga keshlash
+ */
+function fetchTelegramFileBuffer(token, fileId) {
+    return new Promise((resolve) => {
+        https.get(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`, (res) => {
+            let body = '';
+            res.on('data', chunk => { body += chunk; });
+            res.on('end', () => {
+                try {
+                    const info = JSON.parse(body);
+                    if (!info.ok || !info.result || !info.result.file_path) {
+                        return resolve(null);
+                    }
+                    const filePath = info.result.file_path;
+                    https.get(`https://api.telegram.org/file/bot${token}/${filePath}`, (fileRes) => {
+                        const chunks = [];
+                        fileRes.on('data', c => chunks.push(c));
+                        fileRes.on('end', () => {
+                            resolve({
+                                buffer: Buffer.concat(chunks),
+                                filePath
+                            });
+                        });
+                    }).on('error', () => resolve(null));
+                } catch (e) {
+                    resolve(null);
+                }
+            });
+        }).on('error', () => resolve(null));
+    });
+}
+
+/**
+ * Xabar ichidan media (photo, video, document, voice, audio) ma'lumotlarini ajratib olish
+ */
+async function extractMediaFromMessage(msg, token) {
+    let mediaType = null;
+    let fileId = null;
+    let fileName = null;
+    let fileSize = 0;
+    let mimeType = '';
+    let durationSec = 0;
+
+    if (Array.isArray(msg.photo) && msg.photo.length > 0) {
+        const bestPhoto = msg.photo[msg.photo.length - 1];
+        mediaType = 'photo';
+        fileId = bestPhoto.file_id;
+        fileSize = bestPhoto.file_size || 0;
+        fileName = `photo_${Date.now()}.jpg`;
+        mimeType = 'image/jpeg';
+    } else if (msg.video) {
+        mediaType = 'video';
+        fileId = msg.video.file_id;
+        fileSize = msg.video.file_size || 0;
+        fileName = sanitizeFileName(msg.video.file_name || `video_${Date.now()}.mp4`);
+        mimeType = msg.video.mime_type || 'video/mp4';
+        durationSec = msg.video.duration || 0;
+    } else if (msg.video_note) {
+        mediaType = 'video';
+        fileId = msg.video_note.file_id;
+        fileSize = msg.video_note.file_size || 0;
+        fileName = `video_note_${Date.now()}.mp4`;
+        mimeType = 'video/mp4';
+        durationSec = msg.video_note.duration || 0;
+    } else if (msg.animation) {
+        mediaType = 'video';
+        fileId = msg.animation.file_id;
+        fileSize = msg.animation.file_size || 0;
+        fileName = sanitizeFileName(msg.animation.file_name || `animation_${Date.now()}.mp4`);
+        mimeType = msg.animation.mime_type || 'video/mp4';
+    } else if (msg.voice) {
+        mediaType = 'voice';
+        fileId = msg.voice.file_id;
+        fileSize = msg.voice.file_size || 0;
+        fileName = `voice_${Date.now()}.ogg`;
+        mimeType = msg.voice.mime_type || 'audio/ogg';
+        durationSec = msg.voice.duration || 5;
+    } else if (msg.audio) {
+        mediaType = 'voice';
+        fileId = msg.audio.file_id;
+        fileSize = msg.audio.file_size || 0;
+        fileName = sanitizeFileName(msg.audio.file_name || `audio_${Date.now()}.mp3`);
+        mimeType = msg.audio.mime_type || 'audio/mpeg';
+        durationSec = msg.audio.duration || 15;
+    } else if (msg.document) {
+        fileId = msg.document.file_id;
+        fileSize = msg.document.file_size || 0;
+        fileName = sanitizeFileName(msg.document.file_name || `document_${Date.now()}.pdf`);
+        mimeType = msg.document.mime_type || 'application/octet-stream';
+        mediaType = 'document';
+    }
+
+    if (!mediaType || !fileId) return null;
+
+    const safeName = sanitizeFileName(fileName);
+    const localDiskName = `${fileId.slice(-16)}_${safeName}`;
+    const localDiskPath = path.join(UPLOADS_DIR, localDiskName);
+
+    // Faylni oldindan /uploads ichiga yuklab qo'yamiz
+    try {
+        const downloaded = await fetchTelegramFileBuffer(token, fileId);
+        if (downloaded && downloaded.buffer) {
+            fs.writeFileSync(localDiskPath, downloaded.buffer);
+            if (!fileSize) fileSize = downloaded.buffer.length;
+        }
+    } catch (e) {}
+
+    const mediaUrl = `/api/tg-file/${encodeURIComponent(fileId)}/${encodeURIComponent(safeName)}`;
+
+    return {
+        mediaType,
+        fileId,
+        fileName: msg.document && msg.document.file_name ? msg.document.file_name : safeName,
+        fileSize,
+        fileSizeStr: formatBytesSize(fileSize),
+        mimeType,
+        durationSec,
+        mediaUrl
+    };
+}
+
 function startTelegramBot(dbController, customToken) {
     const token = customToken || DEFAULT_BOT_TOKEN;
     const userSessions = {};
@@ -152,7 +296,7 @@ function startTelegramBot(dbController, customToken) {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: '💬 Yangi xabar qo\'shish / rejalashtirish', callback_data: 'menu_add_msg' }],
+                    [{ text: '💬 Matn / Rasm / Video / Fayl yuborish', callback_data: 'menu_add_msg' }],
                     [{ text: '📹 Yangi Video Meeting qo\'shish', callback_data: 'menu_add_meet' }],
                     [{ text: '🟢 Suhbatdosh statusi (Online / Last seen)', callback_data: 'menu_status' }],
                     [{ text: '📋 Qo\'shilgan xabar va meetinglar ro\'yxati', callback_data: 'menu_list' }]
@@ -205,7 +349,7 @@ function startTelegramBot(dbController, customToken) {
             userSessions[chatId] = { mode: 'msg', step: 'pick_chat' };
             return tgApiRequest('sendMessage', {
                 chat_id: chatId,
-                text: '💬 <b>Qaysi chatga xabar qo\'shmoqchisiz?</b>',
+                text: '💬 <b>Qaysi chatga xabar, rasm, video yoki fayl yubormoqchisiz?</b>',
                 parse_mode: 'HTML',
                 reply_markup: contactPickerKeyboard('msgchat')
             });
@@ -217,7 +361,7 @@ function startTelegramBot(dbController, customToken) {
             const meta = CONTACTS[targetChat];
             return tgApiRequest('sendMessage', {
                 chat_id: chatId,
-                text: `👤 Tanlangan chat: <b>${meta.name}</b>\n\nXabar kimning nomidan ko'rinishi kerak?`,
+                text: `👤 Tanlangan chat: <b>${meta.name}</b>\n\nXabar yoki fayl kimning nomidan ko'rinishi kerak?`,
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
@@ -242,7 +386,7 @@ function startTelegramBot(dbController, customToken) {
 
             return tgApiRequest('sendMessage', {
                 chat_id: chatId,
-                text: '🕒 <b>Xabar qachon chiqishi kerak? (Toshkent vaqti bilan)</b>\n\n• Hozir darhol chiqishi uchun pastdagi tugmani bosing.\n• Yoki vaqtni yozib yuboring (masalan: <code>18:30</code> yoki <code>14.10.2026 18:30</code>):',
+                text: '🕒 <b>Qachon chiqishi kerak? (Toshkent vaqti bilan)</b>\n\n• Hozir darhol chiqishi uchun pastdagi tugmani bosing.\n• Yoki vaqtni yozib yuboring (masalan: <code>18:30</code> yoki <code>14.10.2026 18:30</code>):',
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
@@ -260,7 +404,7 @@ function startTelegramBot(dbController, customToken) {
             sess.step = 'enter_text';
             return tgApiRequest('sendMessage', {
                 chat_id: chatId,
-                text: '✍️ <b>Endi xabar matnini yozib yuboring:</b>',
+                text: '✍️📎 <b>Endi xabar matnini yozing yoki Rasm, Video, Fayl (PDF/Doc), Ovozli xabar yuboring:</b>\n<i>(Rasm/video/fayl tagiga izoh — caption ham yozib yuborishingiz mumkin)</i>',
                 parse_mode: 'HTML'
             });
         }
@@ -366,9 +510,10 @@ function startTelegramBot(dbController, customToken) {
             }
             const recent = db.events.slice(-10);
             const buttons = recent.map(ev => {
+                let preview = ev.text || ev.fileName || ev.mediaType || 'Xabar';
                 const label = ev.kind === 'meeting_record'
                     ? `🗑 [Meeting] ${ev.name} (${ev.timeRange})`
-                    : `🗑 [${ev.chat}] ${(ev.text || 'Xabar').substring(0, 24)}...`;
+                    : `🗑 [${ev.chat}] ${preview.substring(0, 24)}`;
                 return [{ text: label, callback_data: `delev_${ev.id}` }];
             });
             buttons.push([{ text: '🔙 Bosh menyu', callback_data: 'back_main' }]);
@@ -389,7 +534,7 @@ function startTelegramBot(dbController, customToken) {
         }
     }
 
-    async function handleTextMessage(msg) {
+    async function handleIncomingMessage(msg) {
         const chatId = msg.chat.id;
         const fromId = msg.from ? msg.from.id : chatId;
 
@@ -400,51 +545,57 @@ function startTelegramBot(dbController, customToken) {
             });
         }
 
-        const text = (msg.text || '').trim();
+        const rawText = (msg.text || msg.caption || '').trim();
+        const mediaInfo = await extractMediaFromMessage(msg, token);
         const db = dbController.getDb();
-        if (!text) return;
 
-        if (text === '/start' || text === '/menu') {
+        if (!rawText && !mediaInfo) return;
+
+        if (rawText === '/start' || rawText === '/menu') {
             delete userSessions[chatId];
             return sendMainMenu(chatId);
         }
 
-        if (text.startsWith('/msg ') || text.startsWith('/sent ')) {
-            const isSent = text.startsWith('/sent ');
-            const rest = text.replace(/^\/(msg|sent)\s+/, '');
+        // Tezkor buyruq (matn yoki media caption orqali): /msg <chat> <vaqt> [matn]
+        if (rawText.startsWith('/msg ') || rawText.startsWith('/sent ')) {
+            const isSent = rawText.startsWith('/sent ');
+            const rest = rawText.replace(/^\/(msg|sent)\s+/, '');
             const firstSpace = rest.indexOf(' ');
-            if (firstSpace < 0) return;
-            const chatKey = rest.slice(0, firstSpace).toLowerCase();
-            const afterChat = rest.slice(firstSpace + 1).trim();
+            if (firstSpace > 0) {
+                const chatKey = rest.slice(0, firstSpace).toLowerCase();
+                const afterChat = rest.slice(firstSpace + 1).trim();
 
-            let dt = null;
-            let msgBody = '';
+                let dt = null;
+                let msgBody = '';
 
-            const fullMatch = afterChat.match(/^(\d{1,2}[./-]\d{1,2}[./-]\d{4}\s+\d{1,2}:\d{1,2})\s+([\s\S]+)$/);
-            const shortMatch = afterChat.match(/^(\d{1,2}:\d{1,2}|now|hozir)\s+([\s\S]+)$/i);
+                const fullMatch = afterChat.match(/^(\d{1,2}[./-]\d{1,2}[./-]\d{4}\s+\d{1,2}:\d{1,2})(?:\s+([\s\S]+))?$/);
+                const shortMatch = afterChat.match(/^(\d{1,2}:\d{1,2}|now|hozir)(?:\s+([\s\S]+))?$/i);
 
-            if (fullMatch) {
-                dt = parseDateTimeInput(fullMatch[1]);
-                msgBody = fullMatch[2];
-            } else if (shortMatch) {
-                dt = parseDateTimeInput(shortMatch[1]);
-                msgBody = shortMatch[2];
-            }
+                if (fullMatch) {
+                    dt = parseDateTimeInput(fullMatch[1]);
+                    msgBody = (fullMatch[2] || '').trim();
+                } else if (shortMatch) {
+                    dt = parseDateTimeInput(shortMatch[1]);
+                    msgBody = (shortMatch[2] || '').trim();
+                }
 
-            if (CONTACTS[chatKey] && dt && msgBody) {
-                const ev = dbController.addChatMessageEvent({
-                    chat: chatKey,
-                    type: isSent ? 'sent' : 'received',
-                    text: msgBody,
-                    timestamp: dt.timestamp,
-                    timeStr: dt.timeStr
-                });
-                return sendMainMenu(chatId, `✅ <b>Xabar saqlandi!</b>\n👤 Chat: <b>${CONTACTS[chatKey].name}</b>\n🕒 Vaqt: <b>${dt.dateStr}, ${dt.timeStr}</b>\n📝 Matn: ${ev.text}`);
+                if (CONTACTS[chatKey] && dt && (msgBody || mediaInfo)) {
+                    const ev = dbController.addChatMessageEvent({
+                        chat: chatKey,
+                        type: isSent ? 'sent' : 'received',
+                        text: msgBody,
+                        timestamp: dt.timestamp,
+                        timeStr: dt.timeStr,
+                        ...(mediaInfo || {})
+                    });
+                    const mediaLabel = mediaInfo ? `\n📎 Media: <b>${mediaInfo.mediaType.toUpperCase()} (${mediaInfo.fileName})</b>` : '';
+                    return sendMainMenu(chatId, `✅ <b>Saqlandi!</b>\n👤 Chat: <b>${CONTACTS[chatKey].name}</b>\n🕒 Vaqt: <b>${dt.dateStr}, ${dt.timeStr}</b>${mediaLabel}${ev.text ? '\n📝 Matn: ' + ev.text : ''}`);
+                }
             }
         }
 
-        if (text.startsWith('/meet ')) {
-            const rest = text.replace(/^\/meet\s+/, '').trim();
+        if (rawText.startsWith('/meet ')) {
+            const rest = rawText.replace(/^\/meet\s+/, '').trim();
             const firstSpace = rest.indexOf(' ');
             if (firstSpace > 0) {
                 const chatKey = rest.slice(0, firstSpace).toLowerCase();
@@ -463,7 +614,7 @@ function startTelegramBot(dbController, customToken) {
         }
 
         if (sess.mode === 'msg' && sess.step === 'pick_time') {
-            const parsed = parseDateTimeInput(text);
+            const parsed = parseDateTimeInput(rawText);
             if (!parsed) {
                 return tgApiRequest('sendMessage', {
                     chat_id: chatId,
@@ -475,7 +626,7 @@ function startTelegramBot(dbController, customToken) {
             sess.step = 'enter_text';
             return tgApiRequest('sendMessage', {
                 chat_id: chatId,
-                text: `🕒 Belgilangan vaqt: <b>${parsed.dateStr}, ${parsed.timeStr}</b>\n\n✍️ <b>Endi xabar matnini yozib yuboring:</b>`,
+                text: `🕒 Belgilangan vaqt: <b>${parsed.dateStr}, ${parsed.timeStr}</b>\n\n✍️📎 <b>Endi xabar matnini yozing yoki Rasm, Video, Fayl (PDF/Doc), Ovozli xabar yuboring:</b>`,
                 parse_mode: 'HTML'
             });
         }
@@ -485,24 +636,29 @@ function startTelegramBot(dbController, customToken) {
             const ev = dbController.addChatMessageEvent({
                 chat: sess.chat,
                 type: sess.type || 'received',
-                text,
+                text: rawText,
                 timestamp: dt.timestamp,
                 timeStr: dt.timeStr,
-                replyToLast: !!sess.replyToLast
+                replyToLast: !!sess.replyToLast,
+                ...(mediaInfo || {})
             });
             const meta = CONTACTS[sess.chat];
             delete userSessions[chatId];
             const statusNote = dt.timestamp > Date.now()
                 ? '⏳ Belgilangan vaqt kelishi bilan chatda Push va ovozli bildirishnoma bilan chiqadi!'
                 : '✅ Darhol chatga qo\'shildi!';
+            const mediaNote = mediaInfo
+                ? `\n📎 Fayl turi: <b>${mediaInfo.mediaType.toUpperCase()} (${mediaInfo.fileName}, ${mediaInfo.fileSizeStr})</b>`
+                : '';
+            const textNote = rawText ? `\n💬 Matn: <i>${rawText}</i>` : '';
             return sendMainMenu(
                 chatId,
-                `✅ <b>Xabar muvaffaqiyatli qo'shildi!</b>\n\n👤 Chat: <b>${meta.name}</b>\n↔️ Yo'nalish: <b>${ev.type === 'received' ? meta.name + ' dan' : 'Sizning nomingizdan'}</b>\n🕒 Vaqt: <b>${dt.dateStr}, ${dt.timeStr}</b>\n💬 Matn: <i>${text}</i>\n\n${statusNote}`
+                `✅ <b>Muvaffaqiyatli qo'shildi!</b>\n\n👤 Chat: <b>${meta.name}</b>\n↔️ Yo'nalish: <b>${ev.type === 'received' ? meta.name + ' dan' : 'Sizning nomingizdan'}</b>\n🕒 Vaqt: <b>${dt.dateStr}, ${dt.timeStr}</b>${mediaNote}${textNote}\n\n${statusNote}`
             );
         }
 
         if (sess.mode === 'meet' && sess.step === 'enter_meet_range') {
-            const range = parseMeetingRangeInput(text);
+            const range = parseMeetingRangeInput(rawText);
             if (!range) {
                 return tgApiRequest('sendMessage', {
                     chat_id: chatId,
@@ -520,7 +676,7 @@ function startTelegramBot(dbController, customToken) {
         }
 
         if (sess.mode === 'meet' && sess.step === 'enter_missed_time') {
-            const dt = parseDateTimeInput(text);
+            const dt = parseDateTimeInput(rawText);
             if (!dt) {
                 return tgApiRequest('sendMessage', {
                     chat_id: chatId,
@@ -547,7 +703,7 @@ function startTelegramBot(dbController, customToken) {
         }
 
         if (sess.mode === 'status' && sess.step === 'pick_status') {
-            const dt = parseDateTimeInput(text);
+            const dt = parseDateTimeInput(rawText);
             if (!dt) {
                 return tgApiRequest('sendMessage', {
                     chat_id: chatId,
@@ -575,7 +731,7 @@ function startTelegramBot(dbController, customToken) {
                 if (res && res.ok && Array.isArray(res.result)) {
                     for (const upd of res.result) {
                         lastUpdateId = upd.update_id;
-                        if (upd.message) await handleTextMessage(upd.message);
+                        if (upd.message) await handleIncomingMessage(upd.message);
                         else if (upd.callback_query) await handleCallbackQuery(upd.callback_query);
                     }
                 } else {
@@ -594,8 +750,12 @@ module.exports = {
     parseDateTimeInput,
     parseMeetingRangeInput,
     formatTimeHHMM,
+    formatBytesSize,
+    fetchTelegramFileBuffer,
+    DEFAULT_BOT_TOKEN,
     BOT_USERNAME,
-    ADMIN_TELEGRAM_ID
+    ADMIN_TELEGRAM_ID,
+    UPLOADS_DIR
 };
 
 if (require.main === module) {
