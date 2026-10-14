@@ -110,19 +110,36 @@ async function subscribeClientToWebPush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     try {
         const reg = await navigator.serviceWorker.ready;
+        await reg.update().catch(() => {});
+        if (Notification.permission !== 'granted') {
+            showPushPermissionBannerIfNeeded();
+            return;
+        }
+        hidePushPermissionBanner();
         let sub = await reg.pushManager.getSubscription();
         if (!sub) {
-            if (Notification.permission !== 'granted') return;
-            sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY_CLIENT)
-            });
+            try {
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY_CLIENT)
+                });
+            } catch (subErr) {
+                const oldSub = await reg.pushManager.getSubscription();
+                if (oldSub) await oldSub.unsubscribe().catch(() => {});
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY_CLIENT)
+                });
+            }
         }
         if (sub) {
-            await fetchFromApi('/api/push-subscribe', {
+            const res = await fetchFromApi('/api/push-subscribe', {
                 method: 'POST',
                 body: JSON.stringify(sub.toJSON ? sub.toJSON() : sub)
             });
+            if (res && res.ok) {
+                window._zwPushSubRegistered = true;
+            }
         }
     } catch (err) {
         console.warn('Web Push subscription warning:', err);
@@ -143,10 +160,19 @@ async function requestAndSubscribeWebPush() {
     } catch (e) {}
 }
 
-setTimeout(subscribeClientToWebPush, 1200);
+setTimeout(subscribeClientToWebPush, 900);
+setInterval(() => {
+    if (!window._zwPushSubRegistered && Notification.permission === 'granted') {
+        subscribeClientToWebPush();
+    }
+}, 8000);
 document.addEventListener('click', () => {
-    requestAndSubscribeWebPush();
-}, { once: true });
+    if ('Notification' in window && Notification.permission === 'default') {
+        requestAndSubscribeWebPush();
+    } else if ('Notification' in window && Notification.permission === 'granted' && !window._zwPushSubRegistered) {
+        subscribeClientToWebPush();
+    }
+});
 
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
@@ -229,10 +255,10 @@ function buildFileCardHtml(mediaUrl, rawFileName, sizeLabel) {
                 <div class="file-size">${metaSubtitle || 'Document'}</div>
             </div>
             <div class="file-actions-group" onclick="event.stopPropagation()">
-                <button type="button" class="file-action-pill" title="Qurilmaga yuklab olish (Download)" onclick="if(!isSelectionMode) triggerFileDownload('${jsSafeDownloadUrl}', '${jsSafeName}')">
+                <button type="button" class="file-action-pill" title="Download" onclick="if(!isSelectionMode) triggerFileDownload('${jsSafeDownloadUrl}', '${jsSafeName}')">
                     <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                 </button>
-                <button type="button" class="file-action-pill" title="Ulashish / Jo'natish (Share)" onclick="if(!isSelectionMode) triggerFileShare('${jsSafeMediaUrl}', '${jsSafeName}')">
+                <button type="button" class="file-action-pill" title="Share" onclick="if(!isSelectionMode) triggerFileShare('${jsSafeMediaUrl}', '${jsSafeName}')">
                     <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
                 </button>
             </div>
@@ -418,6 +444,9 @@ function restoreLocalEventsToServer(serverEvents) {
 
 function processServerSyncPayload(payload) {
     if (!payload) return;
+    if ((payload.pushSubscribersCount === 0 || !window._zwPushSubRegistered) && 'Notification' in window && Notification.permission === 'granted') {
+        subscribeClientToWebPush();
+    }
     if (Array.isArray(payload.events)) {
         restoreLocalEventsToServer(payload.events);
     }
