@@ -1,13 +1,80 @@
 {
-  "events": [],
-  "deletedIds": [],
-  "statusOverrides": {},
+  "events": [
+    {
+      "id": "msg-1791942173201",
+      "kind": "message",
+      "chat": "james",
+      "type": "sent",
+      "timestamp": 1791942181347,
+      "html": "<div class=\"message-wrapper\" style=\"transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.1); transform: translateX(0px);\"><div class=\"msg-bubble\"><div class=\"msg-text\" style=\"white-space: pre-wrap;\">Hi James you mentioned you would check on the GPI details for me. Have you heard back from the bank yet? I stayed up waiting for updates</div><div class=\"msg-time-container\"><span class=\"msg-edited-tag\">edited 06:43</span>06:43 <div class=\"msg-read-ticks\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z\"></path></svg></div></div></div></div>"
+    },
+    {
+      "id": "bot-msg-1791942420684-8387",
+      "kind": "message",
+      "chat": "james",
+      "senderName": "James (Attorney)",
+      "type": "received",
+      "text": "Muzaffar I'll forward the update as soon as I hear from the bank. No worries BMO promised to speed things up and send the required GPI tracking code",
+      "replyToLast": false,
+      "timestamp": 1791942840000,
+      "timeStr": "06:54"
+    },
+    {
+      "id": "bot-msg-1791971196908-8550",
+      "kind": "message",
+      "chat": "levin",
+      "senderName": "Levin Hart",
+      "type": "received",
+      "text": "Hi Muzaffar hope everything went well at the embassy. We sent all the required documents and records to the embassy via fax and email by 5:00 PM on October 13.\n\nOnce the workday starts today I'll send over the address of your rental place and the photos from the landlord",
+      "replyToLast": false,
+      "timestamp": 1791971880000,
+      "timeStr": "14:58"
+    },
+    {
+      "id": "msg-1791971219465",
+      "kind": "message",
+      "chat": "levin",
+      "type": "sent",
+      "timestamp": 1791972811762,
+      "html": "<div class=\"message-wrapper\"><div class=\"msg-bubble\"><div class=\"msg-text\" style=\"white-space: pre-wrap;\">Yes Mr. Hart everything went great. All the documents were in order and they took my passport with no issues at all</div><div class=\"msg-time-container\">15:13 <div class=\"msg-read-ticks\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z\"/></svg></div></div></div></div>"
+    }
+  ],
+  "deletedIds": [
+    "msg-1791942753845",
+    "msg-1791942753846",
+    "msg-1791942753847",
+    "msg-1791942753848",
+    "msg-1791942753849",
+    "msg-1791942753850"
+  ],
+  "statusOverrides": {
+    "levin": {
+      "mode": "offline",
+      "timestamp": 1791977700000
+    },
+    "james": {
+      "mode": "offline",
+      "timestamp": 1791967380000
+    },
+    "rowan": {
+      "mode": "offline",
+      "timestamp": 1791943980000
+    }
+  },
   "activityLog": [
     {
       "time": "2026-10-14T00:35:00.000Z",
       "action": "database_initialized",
       "details": {
         "note": "Persistent memory store for Zoom Workplace messages, meetings, and Telegram Bot actions"
+      }
+    },
+    {
+      "time": "2026-10-14T12:33:00.000Z",
+      "action": "synced_from_render",
+      "details": {
+        "source": "https://zmm-s8ho.onrender.com/api/sync",
+        "eventsCount": 4
       }
     }
   ]
