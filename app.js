@@ -63,8 +63,10 @@
 
         function sendPushNotification(title, message) {
             try {
-                const audio = new Audio('src/alert.mp3'); 
-                audio.play().catch(e => console.log("Ovoz bloklandi. Ekranga bir marta bosing."));
+                if (safeGetItem('zwSoundMuted') !== '1') {
+                    const audio = new Audio('src/alert.mp3');
+                    audio.play().catch(() => {});
+                }
             } catch(e) {}
 
             if ("Notification" in window && Notification.permission === 'granted') {
@@ -72,13 +74,13 @@
                     navigator.serviceWorker.ready.then(function(registration) {
                         registration.showNotification(title, {
                             body: message,
-                            icon: 'src/ava.jpg',
+                            icon: 'src/favicon.png',
                             vibrate: [200, 100, 200],
                             tag: 'zoom-msg'
                         });
                     });
                 } else {
-                    new Notification(title, { body: message, icon: 'src/ava.jpg' });
+                    new Notification(title, { body: message, icon: 'src/favicon.png' });
                 }
             }
         }
