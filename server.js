@@ -629,6 +629,26 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // Test Web Push
+    if (pathname === '/api/push-test' && req.method === 'POST') {
+        sendWebPushToAll({
+            title: 'Zoom Workplace',
+            body: 'Push notifications are active and working!',
+            icon: 'src/favicon.png',
+            badge: 'src/favicon.png',
+            tag: 'zw-test-' + Date.now(),
+            chat: 'james',
+            url: '/'
+        }).then(() => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, count: (db.pushSubscriptions || []).length }));
+        }).catch((err) => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+        });
+        return;
+    }
+
     // 0. GET /api/tg-file/:fileId/:fileName — Telegram media/fayl proksi va kesh
     if (pathname.startsWith('/api/tg-file/') && req.method === 'GET') {
         try {
