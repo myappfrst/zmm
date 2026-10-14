@@ -1,15 +1,18 @@
 /**
  * ============================================================================
- * ZOOM WORKPLACE — REAL-TIME API & RENDER.COM SYNC CLIENT (api.js)
+ * ZOOM WORKPLACE — REAL-TIME API, ALBUM & VAPID WEB PUSH CLIENT (api.js)
  * ============================================================================
- * Ushbu modul index.html va app.js ni server (server.js) hamda Telegram Bot
- * (bot.js) bilan real vaqtda (HTTPS / Render.com yoki localhost orqali) bog'laydi.
- * - Har bir yozilgan, tahrirlangan yoki o'chirilgan xabarni server xotirasiga saqlaydi.
- * - Telegram Bot orqali yuborilgan oddiy xabarlar, FAYLLAR (PDF, DOCX, XLSX, ZIP),
- *   RASMLAR (Photo), VIDEOLAR (Video), OVOZLI XABARLAR (Voice), video-meetinglar
- *   va statuslarni avtomatik qabul qilib, belgilangan vaqtda Push + Ovoz bilan chiqaradi.
+ * - Server (server.js) va Telegram Bot (bot.js) bilan real vaqtda bog'laydi
+ * - VAPID Web Push orqali hattoki PWA yopiq bo'lganda ham bildirishnoma kelishini
+ *   avtomatik ro'yxatdan o'tkazadi (/api/push-subscribe)
+ * - Bir nechta rasm (2, 3, 4 va 4+ ta rasm) yuborilganda bitta guruh (Album)
+ *   sifatida chizadi hamda Fayllarni Yuklab olish (Download) va Ulashish (Share)
+ *   funksiyalarini taqdim etadi
  * ============================================================================
  */
+
+const VAPID_PUBLIC_KEY_CLIENT = 'BNib-6oOhMswQul1iBmheU13cES1YXqpM_Yk_xvkwHZllVkKpwx25NWJoXDRoFyzVPYOba9ikAZBGt0AQPHu_Z8';
+const GOOGLE_CLIENT_ID_CLIENT = '1055198853196-pb3cn7pjvr3pv7o97vj04jngl1j61vjd.apps.googleusercontent.com';
 
 const CONTACT_META = {
     james: { name: 'James (Attorney)', role: 'Corporate Attorney • Legal & Compliance', avatarType: 'la', avatarText: 'LA' },
@@ -89,6 +92,75 @@ function pushDeleteToApi(chat, ids) {
     });
 }
 
+// ==========================================
+// VAPID BACKGROUND WEB PUSH SUBSCRIPTION
+// ==========================================
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function subscribeClientToWebPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            if (Notification.permission !== 'granted') return;
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY_CLIENT)
+            });
+        }
+        if (sub) {
+            await fetchFromApi('/api/push-subscribe', {
+                method: 'POST',
+                body: JSON.stringify(sub.toJSON ? sub.toJSON() : sub)
+            });
+        }
+    } catch (err) {
+        console.warn('Web Push subscription warning:', err);
+    }
+}
+
+async function requestAndSubscribeWebPush() {
+    if (!('Notification' in window)) return;
+    try {
+        if (Notification.permission === 'default') {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                await subscribeClientToWebPush();
+            }
+        } else if (Notification.permission === 'granted') {
+            await subscribeClientToWebPush();
+        }
+    } catch (e) {}
+}
+
+setTimeout(subscribeClientToWebPush, 1200);
+document.addEventListener('click', () => {
+    requestAndSubscribeWebPush();
+}, { once: true });
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'OPEN_CHAT_FROM_PUSH' && event.data.chat) {
+            if (typeof switchDirectChat === 'function') {
+                switchDirectChat(event.data.chat);
+            }
+        }
+    });
+}
+
+// ==========================================
+// ALBUM GRID & FILE ATTACHMENT HTML BUILDERS
+// ==========================================
 function getFileExtensionBadge(fileName) {
     const clean = String(fileName || '').trim();
     const parts = clean.split('.');
@@ -99,19 +171,88 @@ function getFileExtensionBadge(fileName) {
     return 'FILE';
 }
 
-function buildBotAttachmentHtml(ev) {
-    if (!ev || !ev.mediaType) return '';
-    const mediaUrl = resolveMediaUrl(ev.mediaUrl || '');
-    const downloadUrl = mediaUrl + (mediaUrl.includes('?') ? '&download=1' : '?download=1');
-    const safeFileName = String(ev.fileName || 'Attachment')
+function buildAlbumGridHtml(urlsArray) {
+    const urls = (urlsArray || []).filter(Boolean);
+    if (urls.length === 0) return '';
+    if (urls.length === 1) {
+        const u = urls[0].replace(/"/g, '&quot;');
+        return `<div class="chat-img-attachment"><img src="${u}" alt="Photo" loading="lazy" onclick="if(!isSelectionMode) { event.stopPropagation(); openAlbumModal(['${u.replace(/'/g, "\\'")}'], 0); }"></div>`;
+    }
+
+    const encodedList = encodeURIComponent(JSON.stringify(urls));
+    const visibleCount = Math.min(4, urls.length);
+    const extraCount = urls.length - 4;
+    const gridClass = `chat-album-grid count-${visibleCount}`;
+
+    let cellsHtml = '';
+    for (let i = 0; i < visibleCount; i++) {
+        const u = urls[i].replace(/"/g, '&quot;');
+        const isLastWithMore = (i === 3 && extraCount > 0);
+        const moreOverlay = isLastWithMore
+            ? `<div class="album-more-overlay">+${extraCount + 1}</div>`
+            : '';
+        cellsHtml += `
+            <div class="album-cell" onclick="if(!isSelectionMode) { event.stopPropagation(); openAlbumModalFromAttr(this, ${i}); }" data-album="${encodedList}">
+                <img src="${u}" alt="Photo ${i + 1}" loading="lazy">
+                ${moreOverlay}
+            </div>
+        `;
+    }
+
+    return `<div class="${gridClass}" data-album="${encodedList}">${cellsHtml}</div>`;
+}
+
+function buildFileCardHtml(mediaUrl, rawFileName, sizeLabel) {
+    const downloadUrl = mediaUrl.startsWith('data:') || mediaUrl.startsWith('blob:')
+        ? mediaUrl
+        : (mediaUrl + (mediaUrl.includes('?') ? '&download=1' : '?download=1'));
+    const safeFileName = String(rawFileName || 'Document')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    const jsSafeName = String(rawFileName || 'Document').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const jsSafeMediaUrl = String(mediaUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const jsSafeDownloadUrl = String(downloadUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+    const extBadge = getFileExtensionBadge(rawFileName);
+    const metaSubtitle = [extBadge, sizeLabel].filter(Boolean).join(' • ');
+
+    return `
+        <div class="file-attachment" onclick="if(!isSelectionMode && !event.ctrlKey) { event.stopPropagation(); openFilePreviewModal('${jsSafeMediaUrl}', '${jsSafeDownloadUrl}', '${jsSafeName}', '${metaSubtitle}'); }">
+            <div class="file-icon-box" data-ext="${extBadge}">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                <span class="file-ext-tag">${extBadge}</span>
+            </div>
+            <div class="file-info">
+                <div class="file-name" title="${safeFileName}">${safeFileName}</div>
+                <div class="file-size">${metaSubtitle || 'Document'}</div>
+            </div>
+            <div class="file-actions-group" onclick="event.stopPropagation()">
+                <button type="button" class="file-action-pill" title="Qurilmaga yuklab olish (Download)" onclick="if(!isSelectionMode) triggerFileDownload('${jsSafeDownloadUrl}', '${jsSafeName}')">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                </button>
+                <button type="button" class="file-action-pill" title="Ulashish / Jo'natish (Share)" onclick="if(!isSelectionMode) triggerFileShare('${jsSafeMediaUrl}', '${jsSafeName}')">
+                    <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function buildBotAttachmentHtml(ev) {
+    if (!ev || !ev.mediaType) return '';
+
+    if (ev.mediaType === 'album' && Array.isArray(ev.mediaItems) && ev.mediaItems.length > 0) {
+        const urls = ev.mediaItems.map(it => resolveMediaUrl(it.mediaUrl || ''));
+        return buildAlbumGridHtml(urls);
+    }
+
+    const mediaUrl = resolveMediaUrl(ev.mediaUrl || '');
     const sizeLabel = ev.fileSizeStr || (ev.fileSize ? formatBytesSize(ev.fileSize) : '');
 
     if (ev.mediaType === 'photo') {
-        return `<div class="chat-img-attachment"><img src="${mediaUrl}" alt="${safeFileName}" loading="lazy" onclick="if(!isSelectionMode) { event.stopPropagation(); openImageModal(this.src); }"></div>`;
+        return buildAlbumGridHtml([mediaUrl]);
     }
 
     if (ev.mediaType === 'video') {
@@ -126,30 +267,7 @@ function buildBotAttachmentHtml(ev) {
         return `<audio src="${mediaUrl}" controls></audio>`;
     }
 
-    // Default: 'document' (PDF, DOCX, XLSX, ZIP, etc.)
-    const extBadge = getFileExtensionBadge(ev.fileName);
-    const metaSubtitle = [extBadge, sizeLabel].filter(Boolean).join(' • ');
-    const isPreviewableImageOrPdf = /\.(pdf|png|jpe?g|gif|webp)$/i.test(String(ev.fileName || ''));
-    const cardClickAction = isPreviewableImageOrPdf
-        ? `if(!isSelectionMode && !event.ctrlKey) { event.stopPropagation(); window.open('${mediaUrl}', '_blank'); }`
-        : `if(!isSelectionMode && !event.ctrlKey) { event.stopPropagation(); window.open('${downloadUrl}', '_blank'); }`;
-
-    return `
-        <div class="file-attachment" onclick="${cardClickAction}">
-            <div class="file-icon-box" data-ext="${extBadge}">
-                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                <span class="file-ext-tag">${extBadge}</span>
-            </div>
-            <div class="file-info">
-                <div class="file-name" title="${safeFileName}">${safeFileName}</div>
-                <div class="file-size">${metaSubtitle || 'Document'}</div>
-            </div>
-            <a href="${downloadUrl}" download="${safeFileName}" target="_blank" rel="noopener" class="file-download-btn" onclick="if(isSelectionMode) event.preventDefault(); event.stopPropagation()">
-                <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                <span>Download</span>
-            </a>
-        </div>
-    `;
+    return buildFileCardHtml(mediaUrl, ev.fileName || 'Attachment', sizeLabel);
 }
 
 function buildBotMessageHtml(ev) {
@@ -187,6 +305,7 @@ function buildBotMessageHtml(ev) {
             let snip = 'Message';
             if (tEl && tEl.innerText.trim()) snip = tEl.innerText.trim().substring(0, 80);
             else if (fEl && fEl.innerText.trim()) snip = '📄 ' + fEl.innerText.trim().substring(0, 70);
+            else if (tmp.querySelector('.chat-album-grid')) snip = '🖼 Album';
             else if (tmp.querySelector('.chat-img-attachment')) snip = '📷 Photo';
             else if (tmp.querySelector('.chat-video-attachment')) snip = '🎥 Video';
             else if (tmp.querySelector('.voice-msg-player')) snip = '🎤 Voice message';
@@ -216,6 +335,10 @@ function buildBotMessageHtml(ev) {
 }
 
 function getNotificationPreviewForEvent(ev) {
+    if (ev.mediaType === 'album') {
+        const count = Array.isArray(ev.mediaItems) ? ev.mediaItems.length : 2;
+        return ev.text && ev.text.trim() ? `🖼 (${count} photos) ${ev.text.trim()}` : `🖼 Sent ${count} photos`;
+    }
     if (ev.text && ev.text.trim()) {
         if (ev.mediaType === 'photo') return `📷 ${ev.text.trim()}`;
         if (ev.mediaType === 'video') return `🎥 ${ev.text.trim()}`;
@@ -273,7 +396,6 @@ function deliverBotEventNow(ev, isLiveTrigger = false) {
         sendPushNotification(ev.senderName || meta.name, getNotificationPreviewForEvent(ev));
     }
 }
-
 
 let hasRestoredLocalToServer = false;
 
