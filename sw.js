@@ -9,7 +9,7 @@
  * ============================================================================
  */
 
-const CACHE_NAME = 'zoom-workplace-v4';
+const CACHE_NAME = 'zoom-workplace-v5';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
