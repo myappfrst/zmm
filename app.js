@@ -861,9 +861,69 @@
             document.getElementById(id).style.display = 'none'; 
         }
 
-        function openImageModal(src) { 
-            document.getElementById('modalImg').src = src; 
-            document.getElementById('imgModal').style.display = 'flex'; 
+        var currentAlbumUrls = [];
+        var currentAlbumIndex = 0;
+
+        function openImageModal(src) {
+            openAlbumModal([src], 0);
+        }
+
+        function openAlbumModalFromAttr(el, idx) {
+            try {
+                const raw = el.getAttribute('data-album') || (el.closest('[data-album]') && el.closest('[data-album]').getAttribute('data-album'));
+                if (raw) {
+                    const list = JSON.parse(decodeURIComponent(raw));
+                    openAlbumModal(list, idx || 0);
+                    return;
+                }
+            } catch (e) {}
+            const img = el.querySelector('img');
+            if (img && img.src) openAlbumModal([img.src], 0);
+        }
+
+        function openAlbumModal(urls, startIndex = 0) {
+            currentAlbumUrls = Array.isArray(urls) && urls.length > 0 ? urls : [];
+            if (currentAlbumUrls.length === 0) return;
+            currentAlbumIndex = Math.max(0, Math.min(startIndex, currentAlbumUrls.length - 1));
+            updateAlbumModalView();
+            const modal = document.getElementById('imgModal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function updateAlbumModalView() {
+            const imgEl = document.getElementById('modalImg');
+            const counterEl = document.getElementById('albumCounterText');
+            const prevBtn = document.getElementById('albumPrevBtn');
+            const nextBtn = document.getElementById('albumNextBtn');
+            const total = currentAlbumUrls.length;
+            if (imgEl && total > 0) {
+                imgEl.src = currentAlbumUrls[currentAlbumIndex];
+            }
+            if (counterEl) {
+                counterEl.innerText = `${currentAlbumIndex + 1} / ${total}`;
+                counterEl.style.display = total > 1 ? 'inline-block' : 'none';
+            }
+            if (prevBtn) prevBtn.style.display = total > 1 ? 'flex' : 'none';
+            if (nextBtn) nextBtn.style.display = total > 1 ? 'flex' : 'none';
+        }
+
+        function stepAlbumPhoto(dir) {
+            if (!currentAlbumUrls || currentAlbumUrls.length <= 1) return;
+            currentAlbumIndex = (currentAlbumIndex + dir + currentAlbumUrls.length) % currentAlbumUrls.length;
+            updateAlbumModalView();
+        }
+
+        function downloadCurrentModalImage() {
+            const src = currentAlbumUrls[currentAlbumIndex] || (document.getElementById('modalImg') && document.getElementById('modalImg').src);
+            if (!src) return;
+            const dlUrl = src.startsWith('data:') || src.startsWith('blob:') ? src : (src + (src.includes('?') ? '&download=1' : '?download=1'));
+            triggerFileDownload(dlUrl, `Photo_${currentAlbumIndex + 1}.jpg`);
+        }
+
+        function shareCurrentModalImage() {
+            const src = currentAlbumUrls[currentAlbumIndex] || (document.getElementById('modalImg') && document.getElementById('modalImg').src);
+            if (!src) return;
+            triggerFileShare(src, `Photo_${currentAlbumIndex + 1}.jpg`);
         }
 
         // ==========================================
@@ -925,10 +985,19 @@
         }
 
         function getPdfHtml(fileName, fileSize) {
-            return `<div class="file-attachment" onclick="if(!isSelectionMode && !event.ctrlKey) openImageModal('${fileName}')">
+            const safeName = String(fileName || "Document").replace(/'/g, "\\'");
+            const safeSize = String(fileSize || "").replace(/'/g, "\\'");
+            return `<div class="file-attachment" onclick="if(!isSelectionMode && !event.ctrlKey) { event.stopPropagation(); openFilePreviewModal('${safeName}', '${safeName}', '${safeName}', '${safeSize}'); }">
                         <div class="file-icon-box"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
                         <div class="file-info"><div class="file-name">${fileName}</div><div class="file-size">${fileSize}</div></div>
-                        <a href="${fileName}" download="${fileName}" class="file-download-btn" onclick="if(isSelectionMode) event.preventDefault(); event.stopPropagation()"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Download</a>
+                        <div class="file-actions-group" onclick="event.stopPropagation()">
+                            <button type="button" class="file-action-pill" title="Qurilmaga yuklab olish (Download)" onclick="if(!isSelectionMode) triggerFileDownload('${safeName}', '${safeName}')">
+                                <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                            </button>
+                            <button type="button" class="file-action-pill" title="Ulashish / Jo'natish (Share)" onclick="if(!isSelectionMode) triggerFileShare('${safeName}', '${safeName}')">
+                                <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+                            </button>
+                        </div>
                     </div>`;
         }
 
@@ -1862,7 +1931,8 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasAlbum = !!tempDiv.querySelector('.chat-album-grid');
+                        const hasImg = hasAlbum || !!tempDiv.querySelector('.chat-img-attachment');
                         const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
                         const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
                         const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
@@ -1902,7 +1972,8 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasAlbum = !!tempDiv.querySelector('.chat-album-grid');
+                        const hasImg = hasAlbum || !!tempDiv.querySelector('.chat-img-attachment');
                         const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
                         const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
                         const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
@@ -1942,7 +2013,8 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasAlbum = !!tempDiv.querySelector('.chat-album-grid');
+                        const hasImg = hasAlbum || !!tempDiv.querySelector('.chat-img-attachment');
                         const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
                         const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
                         const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
@@ -1982,7 +2054,8 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         const msgTextDiv = tempDiv.querySelector('.msg-text');
                         const fileDiv = tempDiv.querySelector('.file-name');
                         const systemDiv = tempDiv.querySelector('.system-msg');
-                        const hasImg = !!tempDiv.querySelector('.chat-img-attachment');
+                        const hasAlbum = !!tempDiv.querySelector('.chat-album-grid');
+                        const hasImg = hasAlbum || !!tempDiv.querySelector('.chat-img-attachment');
                         const hasVid = !!tempDiv.querySelector('.chat-video-attachment');
                         const hasVoice = !!tempDiv.querySelector('.voice-msg-player');
                         const captionStr = (msgTextDiv && msgTextDiv.innerText) ? msgTextDiv.innerText.trim() : "";
@@ -2375,6 +2448,10 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                     <div class="context-item" id="cmReply" onclick="triggerReply()">
                         <svg viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
                         <span>Reply</span>
+                    </div>
+                    <div class="context-item" id="cmCopy" onclick="triggerCopy()">
+                        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        <span>Copy</span>
                     </div>
                     <div class="context-item" id="cmEdit" onclick="triggerEdit()">
                         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
@@ -3419,6 +3496,72 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
             if (row) setReplyToMessage(row);
         }
 
+        function showAppToast(msgText) {
+            let toast = document.getElementById('zwToastBanner');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'zwToastBanner';
+                toast.className = 'zw-toast-banner';
+                document.body.appendChild(toast);
+            }
+            toast.innerText = msgText;
+            toast.classList.add('visible');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2100);
+        }
+
+        function copyTextToClipboardFallback(str) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = str;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function triggerCopy() {
+            const row = targetMessageRow;
+            close3DTouchMenu();
+            if (!row) return;
+            const textEl = row.querySelector('.msg-text');
+            const fileEl = row.querySelector('.file-name');
+            const sysEl = row.querySelector('.system-msg');
+            let copyStr = '';
+            if (textEl && textEl.innerText.trim()) {
+                copyStr = textEl.innerText.trim();
+            } else if (fileEl && fileEl.innerText.trim()) {
+                copyStr = fileEl.innerText.trim();
+            } else if (sysEl && sysEl.innerText.trim()) {
+                copyStr = sysEl.innerText.trim();
+            }
+            if (!copyStr) {
+                showAppToast('Nothing to copy');
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(copyStr).then(() => {
+                    showAppToast('Copied to clipboard');
+                }).catch(() => {
+                    copyTextToClipboardFallback(copyStr);
+                    showAppToast('Copied to clipboard');
+                });
+            } else {
+                copyTextToClipboardFallback(copyStr);
+                showAppToast('Copied to clipboard');
+            }
+        }
+
         function triggerEdit() {
             const row = targetMessageRow;
             close3DTouchMenu();
@@ -3909,6 +4052,98 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
             return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
         }
 
+        function openFilePreviewModal(mediaUrl, downloadUrl, fileName, metaSubtitle) {
+            const modal = document.getElementById('filePreviewModal');
+            const nameEl = document.getElementById('fpModalName');
+            const metaEl = document.getElementById('fpModalMeta');
+            const bodyEl = document.getElementById('fpModalBody');
+            const dlBtn = document.getElementById('fpDownloadBtn');
+            const shBtn = document.getElementById('fpShareBtn');
+            if (!modal || !bodyEl) {
+                triggerFileDownload(downloadUrl || mediaUrl, fileName);
+                return;
+            }
+
+            if (nameEl) nameEl.innerText = fileName || 'Document';
+            if (metaEl) metaEl.innerText = metaSubtitle || 'File';
+
+            const ext = String(fileName || '').split('.').pop().toLowerCase();
+            if (ext === 'pdf') {
+                bodyEl.innerHTML = `<iframe src="${mediaUrl}" class="fp-iframe-viewer" title="${fileName}"></iframe>`;
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                bodyEl.innerHTML = `<img src="${mediaUrl}" class="fp-img-viewer" alt="${fileName}">`;
+            } else {
+                const badge = (ext || 'FILE').toUpperCase().slice(0, 4);
+                bodyEl.innerHTML = `
+                    <div class="fp-generic-card">
+                        <div class="fp-generic-icon">${badge}</div>
+                        <div class="fp-generic-name">${fileName}</div>
+                        <div class="fp-generic-sub">${metaSubtitle || 'Ready to download or share'}</div>
+                    </div>
+                `;
+            }
+
+            if (dlBtn) {
+                dlBtn.onclick = () => triggerFileDownload(downloadUrl || mediaUrl, fileName);
+            }
+            if (shBtn) {
+                shBtn.onclick = () => triggerFileShare(mediaUrl, fileName);
+            }
+            modal.style.display = 'flex';
+        }
+
+        async function triggerFileDownload(url, fileName) {
+            const safeName = fileName || 'download';
+            try {
+                showAppToast('Yuklab olinmoqda...');
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('Fetch failed');
+                const blob = await resp.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = safeName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 8000);
+            } catch (e) {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = safeName;
+                a.target = '_blank';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        }
+
+        async function triggerFileShare(url, fileName) {
+            const safeName = fileName || 'Attachment';
+            try {
+                const resp = await fetch(url);
+                const blob = await resp.blob();
+                const fileObj = new File([blob], safeName, { type: blob.type || 'application/octet-stream' });
+                if (navigator.canShare && navigator.canShare({ files: [fileObj] })) {
+                    await navigator.share({
+                        files: [fileObj],
+                        title: safeName
+                    });
+                    return;
+                }
+                if (navigator.share) {
+                    await navigator.share({
+                        title: safeName,
+                        url: url.startsWith('http') ? url : (window.location.origin + (url.startsWith('/') ? url : '/' + url))
+                    });
+                    return;
+                }
+            } catch (err) {
+                if (err && err.name === 'AbortError') return;
+            }
+            triggerFileDownload(url + (url.includes('?') ? '&download=1' : '?download=1'), safeName);
+        }
+
         function handleFileUpload(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
@@ -3920,34 +4155,65 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                 input.style.height = 'auto';
             }
 
-            Array.from(files).forEach((file, idx) => {
+            const fileList = Array.from(files);
+            const imageFiles = fileList.filter(f => f.type.startsWith('image/'));
+            const otherFiles = fileList.filter(f => !f.type.startsWith('image/'));
+
+            const readAsUrlPromise = (file) => new Promise((resolve) => {
+                if (file.size <= 3.5 * 1024 * 1024) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = () => resolve(URL.createObjectURL(file));
+                    reader.readAsDataURL(file);
+                } else {
+                    resolve(URL.createObjectURL(file));
+                }
+            });
+
+            // 1. Agar 1 ta yoki bir nechta rasm tanlangan bo'lsa -> hammasini bitta guruh (Album) qilib yuboramiz!
+            if (imageFiles.length > 0) {
+                Promise.all(imageFiles.map(readAsUrlPromise)).then((imgUrls) => {
+                    const replyHTML = buildReplyBoxHtml();
+                    const captionHTML = captionText
+                        ? `<div class="msg-text" style="white-space: pre-wrap; margin-top: 6px;">${captionText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+                        : '';
+                    const mediaHTML = (typeof buildAlbumGridHtml === 'function')
+                        ? buildAlbumGridHtml(imgUrls)
+                        : `<div class="chat-img-attachment"><img src="${imgUrls[0]}" onclick="openImageModal(this.src)"></div>`;
+
+                    const html = `<div class="message-wrapper"><div class="msg-bubble">${replyHTML}${mediaHTML}${captionHTML}<div class="msg-time-container">${getCurrentTime()} ${readTicksHTML}</div></div></div>`;
+                    const msgObj = {
+                        id: getNextId(),
+                        type: 'sent',
+                        timestamp: Date.now(),
+                        html: html,
+                        isDeleted: false
+                    };
+                    saveAndRenderMessage(msgObj);
+                    cancelChatActionBar();
+                });
+            }
+
+            // 2. Boshqa fayllar (video, audio, hujjat)
+            otherFiles.forEach((file, idx) => {
                 const sizeStr = formatBytesSize(file.size);
-                const isImage = file.type.startsWith('image/');
                 const isVideo = file.type.startsWith('video/');
                 const isAudio = file.type.startsWith('audio/');
                 const safeName = file.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-                const renderAttachmentBubble = (urlSrc) => {
-                    const replyHTML = (idx === 0) ? buildReplyBoxHtml() : '';
-                    const captionHTML = (idx === 0 && captionText)
+                readAsUrlPromise(file).then((urlSrc) => {
+                    const replyHTML = (imageFiles.length === 0 && idx === 0) ? buildReplyBoxHtml() : '';
+                    const captionHTML = (imageFiles.length === 0 && idx === 0 && captionText)
                         ? `<div class="msg-text" style="white-space: pre-wrap; margin-top: 6px;">${captionText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
                         : '';
 
                     let mediaHTML = '';
-                    if (isImage) {
-                        mediaHTML = `<div class="chat-img-attachment"><img src="${urlSrc}" alt="${safeName}" onclick="if(!isSelectionMode) { event.stopPropagation(); openImageModal(this.src); }"></div>`;
-                    } else if (isVideo) {
+                    if (isVideo) {
                         mediaHTML = `<div class="chat-video-attachment" onclick="event.stopPropagation()"><video src="${urlSrc}" controls playsinline></video></div>`;
                     } else if (isAudio) {
                         mediaHTML = buildVoicePlayerHtml(urlSrc, 15);
-                    } else {
-                        mediaHTML = `
-                            <div class="file-attachment" onclick="if(!isSelectionMode && !event.ctrlKey) { event.stopPropagation(); }">
-                                <div class="file-icon-box"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
-                                <div class="file-info"><div class="file-name">${safeName}</div><div class="file-size">${sizeStr}</div></div>
-                                <a href="${urlSrc}" download="${safeName}" class="file-download-btn" onclick="if(isSelectionMode) event.preventDefault(); event.stopPropagation()"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Download</a>
-                            </div>
-                        `;
+                    } else if (typeof buildFileCardHtml === 'function') {
+                        mediaHTML = buildFileCardHtml(urlSrc, file.name, sizeStr);
                     }
 
                     const html = `<div class="message-wrapper"><div class="msg-bubble">${replyHTML}${mediaHTML}${captionHTML}<div class="msg-time-container">${getCurrentTime()} ${readTicksHTML}</div></div></div>`;
@@ -3959,22 +4225,99 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                         isDeleted: false
                     };
                     saveAndRenderMessage(msgObj);
-                    if (idx === 0) cancelChatActionBar();
-                };
-
-                // Use DataURL for files <= 3.5MB so they persist across reloads; ObjectURL for larger files
-                if (file.size <= 3.5 * 1024 * 1024) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => renderAttachmentBubble(e.target.result);
-                    reader.readAsDataURL(file);
-                } else {
-                    const objUrl = URL.createObjectURL(file);
-                    renderAttachmentBubble(objUrl);
-                }
+                    if (imageFiles.length === 0 && idx === 0) cancelChatActionBar();
+                });
             });
 
             event.target.value = '';
         }
+
+        // ==========================================
+        // TELEGRAM-STYLE SWIPE-RIGHT TO EXIT CHAT ON MOBILE
+        // + SWIPE LEFT/RIGHT IN FULL-SCREEN ALBUM MODAL
+        // ==========================================
+        (function initMobileSwipeBackAndAlbumSwipe() {
+            let chatSwipeStartX = 0;
+            let chatSwipeStartY = 0;
+            let chatSwipeActive = false;
+            let chatSwipeDx = 0;
+
+            const tcMain = document.querySelector('.tc-main');
+            if (tcMain) {
+                tcMain.addEventListener('touchstart', (e) => {
+                    if (window.innerWidth > 900 || !document.body.classList.contains('mobile-chat-open')) return;
+                    if (e.touches.length !== 1) return;
+                    if (e.target.closest('input, textarea, audio, video, .voice-rec-btn')) return;
+                    chatSwipeStartX = e.touches[0].clientX;
+                    chatSwipeStartY = e.touches[0].clientY;
+                    chatSwipeActive = false;
+                    chatSwipeDx = 0;
+                }, { passive: true });
+
+                tcMain.addEventListener('touchmove', (e) => {
+                    if (window.innerWidth > 900 || !document.body.classList.contains('mobile-chat-open')) return;
+                    if (!chatSwipeStartX) return;
+                    const dx = e.touches[0].clientX - chatSwipeStartX;
+                    const dy = e.touches[0].clientY - chatSwipeStartY;
+
+                    // O'ngga surish (Swipe Right to exit chat like Telegram)
+                    if (!chatSwipeActive && dx > 22 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+                        chatSwipeActive = true;
+                    }
+
+                    if (chatSwipeActive && dx > 0) {
+                        chatSwipeDx = dx;
+                        tcMain.style.transition = 'none';
+                        tcMain.style.transform = `translateX(${Math.min(window.innerWidth, dx)}px)`;
+                    }
+                }, { passive: true });
+
+                const endChatSwipe = () => {
+                    if (!chatSwipeStartX) return;
+                    chatSwipeStartX = 0;
+                    if (!chatSwipeActive) return;
+                    chatSwipeActive = false;
+
+                    if (chatSwipeDx >= 72) {
+                        tcMain.style.transition = 'transform 0.18s ease-out';
+                        tcMain.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            tcMain.style.transition = '';
+                            tcMain.style.transform = '';
+                            closeMobileChat();
+                        }, 170);
+                    } else {
+                        tcMain.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1)';
+                        tcMain.style.transform = 'translateX(0)';
+                        setTimeout(() => {
+                            tcMain.style.transition = '';
+                            tcMain.style.transform = '';
+                        }, 200);
+                    }
+                    chatSwipeDx = 0;
+                };
+
+                tcMain.addEventListener('touchend', endChatSwipe);
+                tcMain.addEventListener('touchcancel', endChatSwipe);
+            }
+
+            // Album modal touch swipe left/right
+            const imgModal = document.getElementById('imgModal');
+            if (imgModal) {
+                let mStartX = 0;
+                imgModal.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 1) mStartX = e.touches[0].clientX;
+                }, { passive: true });
+                imgModal.addEventListener('touchend', (e) => {
+                    if (!mStartX || !e.changedTouches.length) return;
+                    const diffX = e.changedTouches[0].clientX - mStartX;
+                    mStartX = 0;
+                    if (Math.abs(diffX) > 45 && currentAlbumUrls && currentAlbumUrls.length > 1) {
+                        stepAlbumPhoto(diffX < 0 ? 1 : -1);
+                    }
+                }, { passive: true });
+            }
+        })();
 
         // Safe localStorage wrapper inside saveAndRenderMessage
         const _origSaveAndRenderMessage = saveAndRenderMessage;
