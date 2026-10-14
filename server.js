@@ -70,6 +70,41 @@ function logProcess(action, details) {
 
 loadDatabase();
 
+// manifest.json va sw.js fayllari yo'q bo'lsa avtomatik yaratish
+const MANIFEST_FILE = path.join(__dirname, 'manifest.json');
+if (!fs.existsSync(MANIFEST_FILE)) {
+    fs.writeFileSync(MANIFEST_FILE, JSON.stringify({
+        name: 'Zoom Workplace',
+        short_name: 'Zoom',
+        description: 'Zoom Workplace Team Chat & Meetings',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#ffffff',
+        theme_color: '#ffffff',
+        icons: [
+            { src: 'src/favicon.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+            { src: 'src/favicon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+            { src: 'src/favicon.png', sizes: '180x180', type: 'image/png' }
+        ]
+    }, null, 2), 'utf8');
+}
+
+const SW_FILE = path.join(__dirname, 'sw.js');
+if (!fs.existsSync(SW_FILE)) {
+    fs.writeFileSync(SW_FILE, `self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+        for (const c of list) { if ('focus' in c) return c.focus(); }
+        if (self.clients.openWindow) return self.clients.openWindow('/');
+    }));
+});
+`, 'utf8');
+}
+
 // ==========================================
 // BAZA AMALLARI (BOT VA API UCHUN)
 // ==========================================
