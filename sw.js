@@ -1,14 +1,15 @@
 /**
  * ============================================================================
- * ZOOM WORKPLACE — PWA SERVICE WORKER (sw.js)
+ * ZOOM WORKPLACE — PWA & BACKGROUND WEB PUSH SERVICE WORKER (sw.js)
  * ============================================================================
  * - PWA ilova sifatida telefonga (iOS / Android) va kompyuterga o'rnatishni ta'minlaydi
- * - Push bildirishnomalar (Notification) ustiga bosilganda ilovani ochadi
- * - /api/* so'rovlarini har doim jonli serverdan oladi (keshlab qo'ymaydi)
+ * - Hattoki PWA umuman yopiq bo'lganda ham serverdan VAPID Web Push orqali kelgan
+ *   bildirishnomalarni (push event) qabul qilib ekranga chiqaradi
+ * - Bildirishnoma ustiga bosilganda ilovani va tegishli chatni ochadi
  * ============================================================================
  */
 
-const CACHE_NAME = 'zoom-workplace-v2';
+const CACHE_NAME = 'zoom-workplace-v3';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -47,13 +48,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
     const reqUrl = new URL(event.request.url);
-
-    // API so'rovlarini hech qachon keshlamaslik (real vaqtda ishlashi uchun)
     if (reqUrl.pathname.startsWith('/api/') || reqUrl.pathname === '/health' || event.request.method !== 'GET') {
         return;
     }
-
-    // Network-first, offline bo'lganda keshdan olish
     event.respondWith(
         fetch(event.request)
             .then((networkResp) => {
@@ -67,14 +64,61 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
+// BACKGROUND WEB PUSH LISTENER (Works even when PWA is completely closed!)
+self.addEventListener('push', (event) => {
+    let payload = {
+        title: 'Zoom Workplace',
+        body: 'New message received',
+        icon: 'src/favicon.png',
+        badge: 'src/favicon.png',
+        tag: 'zw-msg-' + Date.now(),
+        chat: 'james'
+    };
+
+    if (event.data) {
+        try {
+            const parsed = event.data.json();
+            payload = { ...payload, ...parsed };
+        } catch (e) {
+            try {
+                payload.body = event.data.text() || payload.body;
+            } catch (err) {}
+        }
+    }
+
+    const options = {
+        body: payload.body,
+        icon: payload.icon || 'src/favicon.png',
+        badge: payload.badge || 'src/favicon.png',
+        tag: payload.tag || ('zw-push-' + Date.now()),
+        renotify: true,
+        requireInteraction: false,
+        vibrate: [200, 100, 200],
+        data: {
+            chat: payload.chat || 'james',
+            url: payload.url || '/'
+        }
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(payload.title || 'Zoom Workplace', options)
+    );
+});
+
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    const targetChat = (event.notification.data && event.notification.data.chat) || null;
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {
-                if ('focus' in client) return client.focus();
+                if ('focus' in client) {
+                    client.postMessage({ type: 'OPEN_CHAT_FROM_PUSH', chat: targetChat });
+                    return client.focus();
+                }
             }
-            if (self.clients.openWindow) return self.clients.openWindow('/');
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(targetChat ? `/?chat=${targetChat}` : '/');
+            }
         })
     );
 });
