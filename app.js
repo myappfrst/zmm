@@ -56,8 +56,8 @@
         });
 
         document.body.addEventListener('click', () => {
-            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission();
+            if (typeof requestAndSubscribeWebPush === 'function') {
+                requestAndSubscribeWebPush();
             }
         }, { once: true });
 
@@ -991,10 +991,10 @@
                         <div class="file-icon-box"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
                         <div class="file-info"><div class="file-name">${fileName}</div><div class="file-size">${fileSize}</div></div>
                         <div class="file-actions-group" onclick="event.stopPropagation()">
-                            <button type="button" class="file-action-pill" title="Qurilmaga yuklab olish (Download)" onclick="if(!isSelectionMode) triggerFileDownload('${safeName}', '${safeName}')">
+                            <button type="button" class="file-action-pill" title="Download" onclick="if(!isSelectionMode) triggerFileDownload('${safeName}', '${safeName}')">
                                 <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                             </button>
-                            <button type="button" class="file-action-pill" title="Ulashish / Jo'natish (Share)" onclick="if(!isSelectionMode) triggerFileShare('${safeName}', '${safeName}')">
+                            <button type="button" class="file-action-pill" title="Share" onclick="if(!isSelectionMode) triggerFileShare('${safeName}', '${safeName}')">
                                 <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
                             </button>
                         </div>
@@ -4095,7 +4095,7 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
         async function triggerFileDownload(url, fileName) {
             const safeName = fileName || 'download';
             try {
-                showAppToast('Yuklab olinmoqda...');
+                showAppToast('Downloading...');
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error('Fetch failed');
                 const blob = await resp.blob();
@@ -4239,38 +4239,63 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
         (function initMobileSwipeBackAndAlbumSwipe() {
             let chatSwipeStartX = 0;
             let chatSwipeStartY = 0;
+            let chatSwipeStartTime = 0;
             let chatSwipeActive = false;
+            let chatSwipeLockedVertical = false;
             let chatSwipeDx = 0;
 
             const tcMain = document.querySelector('.tc-main');
+            const tcSidebar = document.querySelector('.tc-sidebar');
+
             if (tcMain) {
                 tcMain.addEventListener('touchstart', (e) => {
                     if (window.innerWidth > 900 || !document.body.classList.contains('mobile-chat-open')) return;
                     if (e.touches.length !== 1) return;
-                    if (e.target.closest('input, textarea, audio, video, .voice-rec-btn')) return;
+                    if (e.target.closest('.voice-rec-btn, audio, video')) return;
                     chatSwipeStartX = e.touches[0].clientX;
                     chatSwipeStartY = e.touches[0].clientY;
+                    chatSwipeStartTime = Date.now();
                     chatSwipeActive = false;
+                    chatSwipeLockedVertical = false;
                     chatSwipeDx = 0;
                 }, { passive: true });
 
                 tcMain.addEventListener('touchmove', (e) => {
                     if (window.innerWidth > 900 || !document.body.classList.contains('mobile-chat-open')) return;
-                    if (!chatSwipeStartX) return;
-                    const dx = e.touches[0].clientX - chatSwipeStartX;
-                    const dy = e.touches[0].clientY - chatSwipeStartY;
+                    if (!chatSwipeStartX || chatSwipeLockedVertical) return;
+                    const touch = e.touches[0];
+                    const dx = touch.clientX - chatSwipeStartX;
+                    const dy = touch.clientY - chatSwipeStartY;
 
-                    // O'ngga surish (Swipe Right to exit chat like Telegram)
-                    if (!chatSwipeActive && dx > 22 && Math.abs(dx) > Math.abs(dy) * 1.35) {
-                        chatSwipeActive = true;
+                    if (!chatSwipeActive) {
+                        if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) {
+                            chatSwipeLockedVertical = true;
+                            return;
+                        }
+                        if (dx > 10 && dx > Math.abs(dy) * 1.15) {
+                            chatSwipeActive = true;
+                            if (typeof pressTimer !== 'undefined') clearTimeout(pressTimer);
+                        }
                     }
 
-                    if (chatSwipeActive && dx > 0) {
-                        chatSwipeDx = dx;
-                        tcMain.style.transition = 'none';
-                        tcMain.style.transform = `translateX(${Math.min(window.innerWidth, dx)}px)`;
+                    if (chatSwipeActive) {
+                        if (e.cancelable) e.preventDefault();
+                        const clampedDx = Math.max(0, Math.min(window.innerWidth, dx));
+                        chatSwipeDx = clampedDx;
+                        const progress = Math.min(1, clampedDx / Math.max(1, window.innerWidth));
+
+                        tcMain.style.setProperty('transition', 'none', 'important');
+                        tcMain.style.setProperty('transform', `translate3d(${clampedDx}px, 0, 0)`, 'important');
+
+                        if (tcSidebar) {
+                            const sideOffset = -26 + (26 * progress);
+                            const sideOpacity = 0.65 + (0.35 * progress);
+                            tcSidebar.style.setProperty('transition', 'none', 'important');
+                            tcSidebar.style.setProperty('transform', `translate3d(${sideOffset}%, 0, 0)`, 'important');
+                            tcSidebar.style.setProperty('opacity', String(sideOpacity), 'important');
+                        }
                     }
-                }, { passive: true });
+                }, { passive: false });
 
                 const endChatSwipe = () => {
                     if (!chatSwipeStartX) return;
@@ -4278,21 +4303,46 @@ Please, Mr. Levin, could you also provide me with the details regarding the resi
                     if (!chatSwipeActive) return;
                     chatSwipeActive = false;
 
-                    if (chatSwipeDx >= 72) {
-                        tcMain.style.transition = 'transform 0.18s ease-out';
-                        tcMain.style.transform = 'translateX(100%)';
+                    const elapsed = Math.max(1, Date.now() - chatSwipeStartTime);
+                    const velocity = chatSwipeDx / elapsed; // px per ms
+                    const screenW = Math.max(300, window.innerWidth);
+                    const shouldClose = (chatSwipeDx > screenW * 0.28) || (chatSwipeDx > 45 && velocity > 0.45);
+
+                    if (shouldClose) {
+                        tcMain.style.setProperty('transition', 'transform 0.22s cubic-bezier(0.2, 0.85, 0.3, 1)', 'important');
+                        tcMain.style.setProperty('transform', 'translate3d(100%, 0, 0)', 'important');
+                        if (tcSidebar) {
+                            tcSidebar.style.setProperty('transition', 'transform 0.22s cubic-bezier(0.2, 0.85, 0.3, 1), opacity 0.22s ease', 'important');
+                            tcSidebar.style.setProperty('transform', 'translate3d(0%, 0, 0)', 'important');
+                            tcSidebar.style.setProperty('opacity', '1', 'important');
+                        }
                         setTimeout(() => {
-                            tcMain.style.transition = '';
-                            tcMain.style.transform = '';
                             closeMobileChat();
-                        }, 170);
+                            tcMain.style.removeProperty('transition');
+                            tcMain.style.removeProperty('transform');
+                            if (tcSidebar) {
+                                tcSidebar.style.removeProperty('transition');
+                                tcSidebar.style.removeProperty('transform');
+                                tcSidebar.style.removeProperty('opacity');
+                            }
+                        }, 210);
                     } else {
-                        tcMain.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1)';
-                        tcMain.style.transform = 'translateX(0)';
+                        tcMain.style.setProperty('transition', 'transform 0.22s cubic-bezier(0.2, 0.85, 0.3, 1)', 'important');
+                        tcMain.style.setProperty('transform', 'translate3d(0px, 0, 0)', 'important');
+                        if (tcSidebar) {
+                            tcSidebar.style.setProperty('transition', 'transform 0.22s cubic-bezier(0.2, 0.85, 0.3, 1), opacity 0.22s ease', 'important');
+                            tcSidebar.style.setProperty('transform', 'translate3d(-26%, 0, 0)', 'important');
+                            tcSidebar.style.setProperty('opacity', '0.65', 'important');
+                        }
                         setTimeout(() => {
-                            tcMain.style.transition = '';
-                            tcMain.style.transform = '';
-                        }, 200);
+                            tcMain.style.removeProperty('transition');
+                            tcMain.style.removeProperty('transform');
+                            if (tcSidebar) {
+                                tcSidebar.style.removeProperty('transition');
+                                tcSidebar.style.removeProperty('transform');
+                                tcSidebar.style.removeProperty('opacity');
+                            }
+                        }, 220);
                     }
                     chatSwipeDx = 0;
                 };
